@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>To do list</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script>
+      window.$ = window.jQuery = require('jquery'); // not sure if you need this at all
+      window.Bootstrap = require('bootstrap');
+    </script>
+    
+    <link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.min.css">
+    <script src="./js/react.production.min.js"></script>
+    <script src="./js/react-dom.production.min.js"></script>
+    <script src="./js/babel.min.js"></script>
+        
+</head>
+
+<script type="text/babel">
+
+    var todoItems = require('electron').remote.getGlobal('todoItems');
+    // todoItems.push({index: 1, title: "learn react", description: "Ta ta ta ta ta."});
+
+class Persistence{
+  constructor(){
+    this.fs = require('fs'); // Load the File System to execute our common tasks (CRUD)
+    const {dialog} = require("electron").remote;
+    this.dialog = dialog
+  }
+
+  todoSave(content){
+    this.fs.writeFile("save.txt", content, (err) => {
+        if(err){
+            alert("An error ocurred creating the file "+ err.message)
+        }         
+        // alert("The file has been succesfully saved");
+    });
+  }
+  todoRead(){
+    this.fs.readFile('save.txt', 'utf-8', (err, data) => {
+        if(err){
+            alert("An error ocurred reading the file :" + err.message);
+            return;
+        }
+
+        // Change how to handle the file content
+        console.log("The file content is : " + data);
+        console.log("AJAAAAAAAAAAAAAM");
+        console.log(JSON.parse(data));
+        return JSON.parse(data);
+    });
+  }
+  //en producción
+  guardar(){
+    // You can obviously give a direct path without use the dialog (C:/Program Files/path/myfileexample.txt)
+    this.dialog.showSaveDialog((fileName) => {
+        let content = "Some text to save into the file";
+        if (fileName === undefined){
+            console.log("You didn't save the file");
+            return;
+        }
+
+        // fileName is a string that contains the path and filename created in the save file dialog.  
+        this.fs.appendFile(fileName, content, (err) => {
+            if(err){
+                alert("An error ocurred creating the file "+ err.message)
+            }
+                        
+            alert("The file has been succesfully saved");
+        });
+    });
+  }
+  
+}
+
+
+
+
+
+class TodoList extends React.Component {
+  render () {
+    var items = this.props.items.map((item, index) => {
+      return (
+        <TodoListItem key={index} item={item} index={index} removeItem={this.props.removeItem} markTodoDone={this.props.markTodoDone} />
+      );
+    });
+    return (
+      <ul className="list-group"> {items} </ul>
+    );
+  }
+}
+  
+class TodoListItem extends React.Component {
+  constructor(props) {
+    super(props);
+    this.onClickClose = this.onClickClose.bind(this);
+    this.onClickDone = this.onClickDone.bind(this);
+    this.pers = new Persistence();
+  }
+  onClickClose() {
+    var index = parseInt(this.props.index);
+    this.props.removeItem(index);
+    this.pers.todoSave(JSON.stringify(todoItems));
+  }
+  onClickDone() {
+    var index = parseInt(this.props.index);
+    this.props.markTodoDone(index);
+  }
+  render () {
+    var todoClass = this.props.item.done ? 
+        "done" : "undone";
+    return(
+      <div className="row">
+        <div className="col-md-10 offset-1 bg-light">
+          <div className="card" style={{width: '95%', marginLeft: 'auto', marginRight: 'auto'}}>
+            <div className="card-body">
+              <h5 className="card-title">
+                {this.props.item.title}
+                <button type="button" className="close" onClick={this.onClickClose}>&times;</button>
+              </h5>
+              <a className="card-link" data-toggle="collapse" href={"#"+this.props.item.index} role="button" aria-expanded="false" aria-controls={this.props.item.index}>
+                Detalles 
+              </a>
+              
+              <div className="collapse" id={this.props.item.index}>
+                <div className="card card-body">
+                  {this.props.item.description}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+       
+    );
+    /*
+        <li className="list-group-item ">
+        <div className={todoClass}>
+          <span className="glyphicon glyphicon-ok icon" aria-hidden="true" onClick={this.onClickDone}>Completo</span>
+          {this.props.item.value}
+          <button type="button" className="close" onClick={this.onClickClose}>&times;</button>
+        </div>
+      </li>
+    */
+  }
+}
+
+class TodoForm extends React.Component {
+  constructor(props) {
+    super(props);
+    this.onSubmit = this.onSubmit.bind(this);
+    this.save = new Persistence();
+  }
+  componentDidMount() {
+    this.refs.title.focus();
+  }
+  onSubmit(event) {
+    event.preventDefault();
+    var title = this.refs.title.value;
+    var description = this.refs.description.value;
+    if(title) {
+      this.props.addItem({title,description});
+      this.refs.form.reset();
+      this.save.todoSave(JSON.stringify(todoItems));
+    }
+  }
+  render () {
+    return (
+      <div className="row">
+          <form ref="form" onSubmit={this.onSubmit} className="col-md-10 offset-1 bg-light" style={{marginBottom: '10px'}}>
+              <div className="form-group">
+                  <label htmlFor="title">Título de la actividad:</label>
+                  <input type="text" ref="title" className="form-control" id="title" placeholder="El título de la nueva actividad" />
+              </div>
+              <div className="form-group">
+                  <label htmlFor="description">Detalles:</label>
+                  <textarea ref="description" className="form-control" id="description" rows="3"></textarea>
+              </div>
+              <button type="submit" className="btn btn-outline-primary btn-lg btn-block">GO!</button>
+          </form>
+      </div>
+    );
+    /*  
+    <form ref="form" onSubmit={this.onSubmit} className="form-inline">
+        <input type="text" ref="itemName" className="form-control" placeholder="add a new todo..."/>
+        <button type="submit" className="btn btn-default">Add</button> 
+      </form>
+    */
+  }
+}
+  
+class TodoHeader extends React.Component {
+  render () {
+    return( 
+      <div className="row">
+        <div className="col-md-10 offset-1 bg-info">
+          <h1 className=" text-light">Lista de por hacer</h1>
+        </div>
+      </div>
+    );
+  }
+}
+  
+class TodoApp extends React.Component {
+  constructor (props) {
+    super(props);
+    this.addItem = this.addItem.bind(this);
+    this.removeItem = this.removeItem.bind(this);
+    this.markTodoDone = this.markTodoDone.bind(this);
+    this.state = {todoItems: todoItems};
+  }
+  addItem(todoItem) {
+    todoItems.unshift({
+      index: todoItems.length+1, 
+      title: todoItem.title,
+      description: todoItem.description, 
+      done: false
+    });
+    this.setState({todoItems: todoItems});
+  }
+  removeItem (itemIndex) {
+    todoItems.splice(itemIndex, 1);
+    this.setState({todoItems: todoItems});
+  }
+  markTodoDone(itemIndex) {
+    var todo = todoItems[itemIndex];
+    todoItems.splice(itemIndex, 1);
+    todo.done = !todo.done;
+    todo.done ? todoItems.push(todo) : todoItems.unshift(todo);
+    this.setState({todoItems: todoItems});  
+  }
+  render() {
+    
+    return (
+      <div id="main" className="container">
+        <TodoHeader />
+        <TodoForm addItem={this.addItem} />
+        <TodoList items={this.props.initItems} removeItem={this.removeItem} markTodoDone={this.markTodoDone}/>
+      </div>
+    );
+  }
+}
+
+ReactDOM.render(<TodoApp initItems={todoItems}/>, document.getElementById('app'));
+
+
+
+
+// const gg = new Persistence();
+// gg.guardar();
+</script>
+<body>
+  <div id="app"></div>
+</body>
+</html>
+
+
+
+<script>
+  // You can also require other files to run in this process
+  require('./renderer.js')
+</script>
+
